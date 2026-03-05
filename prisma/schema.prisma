@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Tender {
+  id         Int            @id @default(autoincrement())
+  code       String         @unique @db.VarChar(32)
+  name       String         @db.VarChar(191)
+  date       DateTime?
+  currency   Currency
+  status     TenderStatus   @default(PREP)
+  memo       String?
+  startedAt  DateTime?
+  endedAt    DateTime?
+  createdAt  DateTime       @default(now())
+  updatedAt  DateTime       @updatedAt
+  auditLogs  AuditLog[]
+  tenderBids Bid[]          @relation("TenderBids")
+  lots       Lot[]
+  bidders    TenderBidder[]
+
+  @@index([status, currency, date])
+}
+
+model Lot {
+  id          Int      @id @default(autoincrement())
+  tenderId    Int
+  lotNo       Int
+  shape       String   @default("") @db.VarChar(64)
+  color       String   @default("") @db.VarChar(64)
+  lustre      String   @default("") @db.VarChar(64)
+  surface     String   @default("") @db.VarChar(64)
+  size        String   @default("") @db.VarChar(64)
+  description String?
+  startPrice  Decimal  @db.Decimal(14, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  bids        Bid[]
+  tender      Tender   @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@unique([tenderId, lotNo])
+  @@index([tenderId, lotNo])
+}
+
+model Bidder {
+  id        Int            @id @default(autoincrement())
+  bidderNo  String         @db.VarChar(32)
+  name      String         @db.VarChar(191)
+  email     String?        @db.VarChar(191)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+  bids      Bid[]
+  tenders   TenderBidder[]
+
+  @@unique([bidderNo, name])
+  @@index([bidderNo])
+}
+
+model TenderBidder {
+  id        Int      @id @default(autoincrement())
+  tenderId  Int
+  bidderId  Int
+  createdAt DateTime @default(now())
+  bidder    Bidder   @relation(fields: [bidderId], references: [id], onDelete: Cascade)
+  tender    Tender   @relation(fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@unique([tenderId, bidderId])
+  @@index([tenderId])
+}
+
+model Bid {
+  id                Int       @id @default(autoincrement())
+  tenderId          Int
+  lotId             Int
+  bidderId          Int
+  amount            Decimal   @db.Decimal(14, 2)
+  state             BidState  @default(DRAFT)
+  warningBelowStart Boolean   @default(false)
+  note              String?   @db.VarChar(255)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  submittedAt       DateTime?
+  bidder            Bidder    @relation(fields: [bidderId], references: [id], onDelete: Cascade)
+  lot               Lot       @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  tender            Tender    @relation("TenderBids", fields: [tenderId], references: [id], onDelete: Cascade)
+
+  @@unique([tenderId, lotId, bidderId])
+  @@index([lotId, state, amount])
+  @@index([bidderId, tenderId])
+}
+
+model User {
+  id           Int          @id @default(autoincrement())
+  name         String       @db.VarChar(120)
+  loginId      String       @unique @db.VarChar(80)
+  passwordHash String       @db.VarChar(255)
+  role         UserRole     @default(OPERATOR)
+  status       RecordStatus @default(ACTIVE)
+  lastLoginAt  DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  auditLogs    AuditLog[]
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  username  String?  @db.VarChar(120)
+  action    String   @db.VarChar(100)
+  detail    String
+  tenderId  Int?
+  lotId     Int?
+  createdAt DateTime @default(now())
+  tender    Tender?  @relation(fields: [tenderId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id])
+
+  @@index([createdAt])
+  @@index([action])
+}
+
+enum Currency {
+  USD
+  MMK
+}
+
+enum TenderStatus {
+  PREP
+  IN_PROGRESS
+  CLOSED
+}
+
+enum BidState {
+  DRAFT
+  SUBMITTED
+  INVALID
+}
+
+enum UserRole {
+  ADMIN
+  OPERATOR
+}
+
+enum RecordStatus {
+  ACTIVE
+  INACTIVE
+}
