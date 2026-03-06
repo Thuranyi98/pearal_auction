@@ -33,7 +33,8 @@ export function BidderAutoSelect({ currentBidderId, bidders, disabled = false }:
           next.set("bidderId", e.target.value);
           next.delete("ok");
           startTransition(() => {
-            router.replace(`${pathname}?${next.toString()}`);
+            router.replace(`${pathname}?${next.toString()}`, { scroll: false });
+            router.refresh();
           });
         }}
         className="h-9 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs"

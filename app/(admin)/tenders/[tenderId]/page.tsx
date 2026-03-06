@@ -316,7 +316,7 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
                     </span>
                   </div>
 
-                  <form action={saveBidEntry} className="space-y-3">
+                  <form key={`bid-entry-${selectedBidder.id}`} action={saveBidEntry} className="space-y-3">
                     <input type="hidden" name="tenderId" value={id} />
                     <input type="hidden" name="bidderId" value={selectedBidder.id} />
 
@@ -369,9 +369,6 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
                     </div>
 
                     <div className="flex flex-wrap justify-end gap-2">
-                      <Button type="submit" name="mode" value="DRAFT" variant="outline" disabled={isTenderClosed} className="h-9 rounded-full border-slate-200 bg-white px-4 text-xs">
-                        Save Draft
-                      </Button>
                       <Button type="submit" name="mode" value="SUBMITTED" disabled={isTenderClosed} className="h-9 rounded-full bg-primary px-4 text-xs text-primary-foreground hover:bg-primary/90">
                         Submit / Confirm
                       </Button>
