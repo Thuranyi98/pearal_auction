@@ -13,6 +13,15 @@ function parseNumber(input: FormDataEntryValue | null) {
   return n;
 }
 
+async function ensureTenderNotClosed(tenderId: number) {
+  const tender = await prisma.tender.findUnique({
+    where: { id: tenderId },
+    select: { status: true },
+  });
+  if (!tender) throw new Error("Tender not found");
+  if (tender.status === "CLOSED") throw new Error("Tender is closed and cannot be modified");
+}
+
 type SaveLotEntryInput = {
   id?: number;
   tenderId: number;
@@ -45,6 +54,7 @@ export async function saveLotEntry(input: SaveLotEntryInput) {
   if (!shape || !color || !lustre || !surface || !size) {
     throw new Error("Shape, colour, lustre, surface and size are required");
   }
+  await ensureTenderNotClosed(tenderId);
 
   const lot = await prisma.$transaction(async (tx) => {
     if (input.id) {
@@ -387,7 +397,7 @@ export async function createTender(formData: FormData) {
   const count = await prisma.tender.count();
   const code = `T-${String(count + 1).padStart(3, "0")}`;
 
-  await prisma.tender.create({
+  const created = await prisma.tender.create({
     data: {
       code,
       name,
@@ -400,6 +410,7 @@ export async function createTender(formData: FormData) {
 
   revalidatePath("/tenders");
   revalidatePath("/");
+  redirect(`/tenders/${created.id}?ok=tender_created`);
 }
 
 export async function updateTenderStatus(formData: FormData) {
@@ -407,6 +418,7 @@ export async function updateTenderStatus(formData: FormData) {
 
   const tenderId = parseNumber(formData.get("tenderId"));
   const status = String(formData.get("status") ?? "PREP") as "PREP" | "IN_PROGRESS" | "CLOSED";
+  await ensureTenderNotClosed(tenderId);
 
   await prisma.tender.update({
     where: { id: tenderId },
@@ -429,6 +441,7 @@ export async function updateTenderStatus(formData: FormData) {
   revalidatePath(`/tenders/${tenderId}`);
   revalidatePath("/");
   revalidatePath("/tenders");
+  redirect(`/tenders/${tenderId}?tab=overview&ok=tender_status_updated`);
 }
 
 export async function addLot(formData: FormData) {
@@ -438,6 +451,7 @@ export async function addLot(formData: FormData) {
   const lotNo = parseNumber(formData.get("lotNo"));
   const description = String(formData.get("description") ?? "").trim();
   const startPrice = parseNumber(formData.get("startPrice"));
+  await ensureTenderNotClosed(tenderId);
 
   await prisma.lot.create({
     data: {
@@ -461,6 +475,7 @@ export async function addBidder(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim();
 
   if (!bidderNo || !name) throw new Error("Bidder no and name are required");
+  await ensureTenderNotClosed(tenderId);
 
   const bidder = await prisma.bidder.upsert({
     where: {
@@ -495,6 +510,114 @@ export async function addBidder(formData: FormData) {
 
   revalidatePath(`/tenders/${tenderId}?tab=bidders`);
   revalidatePath("/bidders");
+  redirect(`/tenders/${tenderId}?tab=bidders&ok=bidder_saved`);
+}
+
+export async function removeBidderFromTender(formData: FormData) {
+  const actor = await requireAuth();
+  const tenderId = parseNumber(formData.get("tenderId"));
+  const bidderId = parseNumber(formData.get("bidderId"));
+  await ensureTenderNotClosed(tenderId);
+
+  const tenderBidder = await prisma.tenderBidder.findUnique({
+    where: {
+      tenderId_bidderId: {
+        tenderId,
+        bidderId,
+      },
+    },
+    include: {
+      bidder: {
+        select: { bidderNo: true, name: true },
+      },
+      tender: {
+        select: { code: true },
+      },
+    },
+  });
+  if (!tenderBidder) {
+    redirect(`/tenders/${tenderId}?tab=bidders`);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.bid.deleteMany({
+      where: { tenderId, bidderId },
+    });
+    await tx.tenderBidder.delete({
+      where: {
+        tenderId_bidderId: {
+          tenderId,
+          bidderId,
+        },
+      },
+    });
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      username: actor.name,
+      action: "BIDDER_REMOVED_FROM_TENDER",
+      detail: `Removed bidder ${tenderBidder.bidder.bidderNo} (${tenderBidder.bidder.name}) from tender ${tenderBidder.tender.code}`,
+      tenderId,
+    },
+  });
+
+  revalidatePath(`/tenders/${tenderId}?tab=bidders`);
+  revalidatePath(`/tenders/${tenderId}?tab=bid-entry`);
+  revalidatePath(`/tenders/${tenderId}?tab=results`);
+  revalidatePath("/bidders");
+  revalidatePath("/");
+  redirect(`/tenders/${tenderId}?tab=bidders&ok=bidder_deleted`);
+}
+
+export async function updateBidderInTender(formData: FormData) {
+  const actor = await requireAuth();
+  const tenderId = parseNumber(formData.get("tenderId"));
+  const bidderId = parseNumber(formData.get("bidderId"));
+  const bidderNo = String(formData.get("bidderNo") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+
+  if (!bidderNo || !name) throw new Error("Bidder no and name are required");
+  await ensureTenderNotClosed(tenderId);
+
+  const tenderBidder = await prisma.tenderBidder.findUnique({
+    where: {
+      tenderId_bidderId: {
+        tenderId,
+        bidderId,
+      },
+    },
+    include: {
+      tender: {
+        select: { code: true },
+      },
+    },
+  });
+  if (!tenderBidder) throw new Error("Bidder is not registered in this tender");
+
+  await prisma.bidder.update({
+    where: { id: bidderId },
+    data: {
+      bidderNo,
+      name,
+      email: email || null,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      username: actor.name,
+      action: "BIDDER_UPDATED",
+      detail: `Updated bidder ${bidderNo} (${name}) in tender ${tenderBidder.tender.code}`,
+      tenderId,
+    },
+  });
+
+  revalidatePath(`/tenders/${tenderId}?tab=bidders`);
+  revalidatePath(`/tenders/${tenderId}?tab=bid-entry`);
+  revalidatePath("/bidders");
+  redirect(`/tenders/${tenderId}?tab=bidders&ok=bidder_updated`);
 }
 
 export async function saveBidEntry(formData: FormData) {
@@ -503,6 +626,7 @@ export async function saveBidEntry(formData: FormData) {
   const tenderId = parseNumber(formData.get("tenderId"));
   const bidderId = parseNumber(formData.get("bidderId"));
   const mode = String(formData.get("mode") ?? "DRAFT") as "DRAFT" | "SUBMITTED";
+  await ensureTenderNotClosed(tenderId);
 
   const lots = await prisma.lot.findMany({
     where: { tenderId },
@@ -557,6 +681,8 @@ export async function saveBidEntry(formData: FormData) {
   revalidatePath(`/tenders/${tenderId}?tab=monitor`);
   revalidatePath(`/tenders/${tenderId}?tab=results`);
   revalidatePath("/");
+  const okKey = mode === "SUBMITTED" ? "bid_submitted" : "bid_draft_saved";
+  redirect(`/tenders/${tenderId}?tab=bid-entry&bidderId=${bidderId}&ok=${okKey}`);
 }
 
 export async function setLotNotForSale(input: { tenderId: number; lotId: number; notForSale: boolean }) {
@@ -610,6 +736,7 @@ export async function resolveTieBid(formData: FormData) {
   const tenderId = parseNumber(formData.get("tenderId"));
   const lotId = parseNumber(formData.get("lotId"));
   const winnerBidId = parseNumber(formData.get("winnerBidId"));
+  await ensureTenderNotClosed(tenderId);
 
   const lot = await prisma.lot.findFirst({
     where: { id: lotId, tenderId },
@@ -681,6 +808,7 @@ export async function resolveTieByRebid(formData: FormData) {
 
   const tenderId = parseNumber(formData.get("tenderId"));
   const lotId = parseNumber(formData.get("lotId"));
+  await ensureTenderNotClosed(tenderId);
 
   const lot = await prisma.lot.findFirst({
     where: { id: lotId, tenderId },
@@ -758,6 +886,7 @@ export async function resolveTieByRebid(formData: FormData) {
   revalidatePath(`/tenders/${tenderId}?tab=monitor`);
   revalidatePath(`/tenders/${tenderId}?tab=results`);
   revalidatePath("/");
+  redirect(`/tenders/${tenderId}?tab=bid-entry&ok=tie_resolved`);
 }
 
 export async function createUser(formData: FormData) {
@@ -781,4 +910,67 @@ export async function createUser(formData: FormData) {
   });
 
   revalidatePath("/users");
+  redirect("/users?ok=user_created");
+}
+
+export async function updateTenderInfo(formData: FormData) {
+  const actor = await requireAuth();
+
+  const tenderId = parseNumber(formData.get("tenderId"));
+  const name = String(formData.get("name") ?? "").trim();
+  const dateRaw = String(formData.get("date") ?? "").trim();
+  const memo = String(formData.get("memo") ?? "").trim();
+
+  if (!name) throw new Error("Tender name is required");
+  await ensureTenderNotClosed(tenderId);
+
+  await prisma.tender.update({
+    where: { id: tenderId },
+    data: {
+      name,
+      date: dateRaw ? new Date(dateRaw) : null,
+      memo: memo || null,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      username: actor.name,
+      action: "TENDER_UPDATED",
+      detail: `Tender #${tenderId} information updated`,
+      tenderId,
+    },
+  });
+
+  revalidatePath(`/tenders/${tenderId}`);
+  revalidatePath("/tenders");
+  revalidatePath("/");
+  redirect(`/tenders/${tenderId}?tab=settings&ok=tender_updated`);
+}
+
+export async function deleteTender(formData: FormData) {
+  const actor = await requireAdmin();
+  const tenderId = parseNumber(formData.get("tenderId"));
+
+  const tender = await prisma.tender.findUnique({
+    where: { id: tenderId },
+    select: { id: true, code: true, name: true },
+  });
+  if (!tender) throw new Error("Tender not found");
+
+  await prisma.tender.delete({ where: { id: tenderId } });
+
+  await prisma.auditLog.create({
+    data: {
+      username: actor.name,
+      action: "TENDER_DELETED",
+      detail: `Deleted tender ${tender.code} (${tender.name})`,
+    },
+  });
+
+  revalidatePath("/tenders");
+  revalidatePath("/results");
+  revalidatePath("/bidders");
+  revalidatePath("/");
+  redirect("/tenders?ok=tender_deleted");
 }

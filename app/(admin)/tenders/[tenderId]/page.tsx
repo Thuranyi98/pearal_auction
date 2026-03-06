@@ -5,11 +5,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LotsManagementTable } from "@/components/lots/lots-management-table";
+import { BidderAutoSelect } from "@/components/tenders/bidder-auto-select";
+import { DeleteTenderConfirm } from "@/components/tenders/delete-tender-confirm";
+import { EditBidderDialog } from "@/components/tenders/edit-bidder-dialog";
 import { TenderStatusActions } from "@/components/tenders/tender-status-actions";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { addBidder, resolveTieByRebid, saveBidEntry, updateTenderStatus } from "@/lib/actions";
+import { Textarea } from "@/components/ui/textarea";
+import { addBidder, deleteTender, removeBidderFromTender, resolveTieByRebid, saveBidEntry, updateBidderInTender, updateTenderInfo, updateTenderStatus } from "@/lib/actions";
 import { calculateLotOutcome, statusLabelFromOutcome, toNumber } from "@/lib/auction";
 import { isLotNotForSale } from "@/lib/lot-sale-status";
 import { formatCurrency } from "@/lib/utils";
@@ -63,6 +67,7 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
   if (!tender) notFound();
 
   const selectedBidderId = bidderId ? Number(bidderId) : tender.bidders[0]?.bidder.id;
+  const isTenderClosed = tender.status === "CLOSED";
   const outcomes = tender.lots.map(calculateLotOutcome);
   const tieOutcomes = outcomes.filter((o) => {
     const lot = tender.lots.find((x) => x.id === o.lotId);
@@ -78,6 +83,7 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
   const selectedTieLot = tieOutcomes.length
     ? tender.lots.find((lot) => lot.id === tieOutcomes[0].lotId)
     : null;
+  const tenderDateValue = tender.date ? new Date(tender.date).toISOString().slice(0, 10) : "";
 
   const bidMap = selectedBidderId
     ? new Map(
@@ -220,9 +226,29 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
                         }
                       </TableCell>
                       <TableCell className="h-[46px] border-b border-slate-200 text-center">
-                        <Button size="sm" variant="outline" className="h-8 rounded-full border-slate-200 px-3 text-xs" disabled>
-                          Open
-                        </Button>
+                        <div className="flex items-center justify-center gap-1.5">
+                          <EditBidderDialog
+                            tenderId={id}
+                            bidderId={tb.bidder.id}
+                            bidderNo={tb.bidder.bidderNo}
+                            name={tb.bidder.name}
+                            email={tb.bidder.email ?? null}
+                            disabled={isTenderClosed}
+                            updateAction={updateBidderInTender}
+                          />
+                          <form action={removeBidderFromTender}>
+                            <input type="hidden" name="tenderId" value={id} />
+                            <input type="hidden" name="bidderId" value={tb.bidder.id} />
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isTenderClosed}
+                              className="h-8 rounded-full border-rose-300 bg-rose-50 px-3 text-xs text-rose-700 hover:bg-rose-100"
+                            >
+                              Delete
+                            </Button>
+                          </form>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -241,17 +267,17 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
                 <input type="hidden" name="tenderId" value={id} />
                 <div className="grid gap-2">
                   <Label htmlFor="bidderNo" className="text-xs text-slate-600">Bidder No*</Label>
-                  <Input id="bidderNo" name="bidderNo" required className="h-9 rounded-full border-slate-200 bg-slate-50 text-xs" />
+                  <Input id="bidderNo" name="bidderNo" required disabled={isTenderClosed} className="h-9 rounded-full border-slate-200 bg-slate-50 text-xs" />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="name" className="text-xs text-slate-600">Name*</Label>
-                  <Input id="name" name="name" required className="h-9 rounded-full border-slate-200 bg-slate-50 text-xs" />
+                  <Input id="name" name="name" required disabled={isTenderClosed} className="h-9 rounded-full border-slate-200 bg-slate-50 text-xs" />
                 </div>
                 <div className="grid gap-2 md:col-span-2">
                   <Label htmlFor="email" className="text-xs text-slate-600">Email</Label>
-                  <Input id="email" name="email" type="email" className="h-9 rounded-full border-slate-200 bg-slate-50 text-xs" />
+                  <Input id="email" name="email" type="email" disabled={isTenderClosed} className="h-9 rounded-full border-slate-200 bg-slate-50 text-xs" />
                 </div>
-                <Button type="submit" className="h-9 rounded-full bg-primary px-4 text-xs hover:bg-primary/90 md:col-span-4 md:w-fit">
+                <Button type="submit" disabled={isTenderClosed} className="h-9 rounded-full bg-primary px-4 text-xs hover:bg-primary/90 md:col-span-4 md:w-fit">
                   Save
                 </Button>
               </form>
@@ -268,23 +294,17 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 p-3">
-                <form className="flex flex-wrap items-center gap-2">
-                  <input type="hidden" name="tab" value="bid-entry" />
-                  <select
-                    name="bidderId"
-                    defaultValue={selectedBidderId ? String(selectedBidderId) : ""}
-                    className="h-9 rounded-full border border-slate-200 bg-slate-50 px-3 text-xs"
-                  >
-                    {tender.bidders.map((tb) => (
-                      <option key={tb.bidder.id} value={tb.bidder.id}>
-                        BidderNo {tb.bidder.bidderNo} - {tb.bidder.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Button type="submit" variant="outline" className="h-9 rounded-full border-slate-200 bg-white px-4 text-xs">
-                    Load
-                  </Button>
-                </form>
+                <div className="flex flex-wrap items-center gap-2">
+                  <BidderAutoSelect
+                    currentBidderId={selectedBidderId}
+                    disabled={isTenderClosed}
+                    bidders={tender.bidders.map((tb) => ({
+                      id: tb.bidder.id,
+                      bidderNo: tb.bidder.bidderNo,
+                      name: tb.bidder.name,
+                    }))}
+                  />
+                </div>
               </div>
 
               {selectedBidder ? (
@@ -335,7 +355,7 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
                                   min="0"
                                   step="0.01"
                                   className="h-8 rounded-md border-slate-200 text-xs"
-                                  disabled={lotNotForSale}
+                                  disabled={lotNotForSale || isTenderClosed}
                                 />
                               </TableCell>
                               <TableCell className="h-[46px] border-b border-slate-200 text-xs text-amber-700">
@@ -349,10 +369,10 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
                     </div>
 
                     <div className="flex flex-wrap justify-end gap-2">
-                      <Button type="submit" name="mode" value="DRAFT" variant="outline" className="h-9 rounded-full border-slate-200 bg-white px-4 text-xs">
+                      <Button type="submit" name="mode" value="DRAFT" variant="outline" disabled={isTenderClosed} className="h-9 rounded-full border-slate-200 bg-white px-4 text-xs">
                         Save Draft
                       </Button>
-                      <Button type="submit" name="mode" value="SUBMITTED" className="h-9 rounded-full bg-primary px-4 text-xs text-primary-foreground hover:bg-primary/90">
+                      <Button type="submit" name="mode" value="SUBMITTED" disabled={isTenderClosed} className="h-9 rounded-full bg-primary px-4 text-xs text-primary-foreground hover:bg-primary/90">
                         Submit / Confirm
                       </Button>
                     </div>
@@ -401,13 +421,14 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
                               step="0.01"
                               required
                               defaultValue={String(toNumber(b.amount))}
+                              disabled={isTenderClosed}
                               className="mt-1 h-9 rounded-md border-slate-300 bg-white text-xs"
                             />
                           </div>
                         ))}
                     </div>
                     <div className="flex justify-end">
-                      <Button type="submit" className="h-9 rounded-full bg-primary px-4 text-xs text-primary-foreground hover:bg-primary/90">
+                      <Button type="submit" disabled={isTenderClosed} className="h-9 rounded-full bg-primary px-4 text-xs text-primary-foreground hover:bg-primary/90">
                         Confirm Rebid Winner
                       </Button>
                     </div>
@@ -577,39 +598,52 @@ export default async function TenderDetailPage({ params, searchParams }: Props) 
             <CardTitle className="text-sm font-semibold text-slate-800">Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 p-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-semibold text-slate-800">Tender Operations</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  Tie resolution, close confirmation, and NOT FOR SALE updates are enabled for this tender.
-                </p>
-                <Badge variant="outline" className="mt-3 rounded-full border-emerald-200 bg-emerald-50 text-emerald-700">
-                  Active
-                </Badge>
+            <form action={updateTenderInfo} className="rounded-2xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 p-4">
+              <input type="hidden" name="tenderId" value={id} />
+              <p className="text-sm font-semibold text-slate-800">Edit Tender Information</p>
+
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="name" className="text-xs text-slate-600">Tender Name*</Label>
+                  <Input id="name" name="name" defaultValue={tender.name} required disabled={isTenderClosed} className="h-9 rounded-full border-slate-200 bg-slate-50 text-xs" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="date" className="text-xs text-slate-600">Date</Label>
+                  <Input id="date" name="date" type="date" defaultValue={tenderDateValue} disabled={isTenderClosed} className="h-9 rounded-full border-slate-200 bg-slate-50 text-xs" />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="currency" className="text-xs text-slate-600">Currency</Label>
+                  <Input id="currency" value="USD (fixed)" disabled className="h-9 rounded-full border-slate-200 bg-slate-100 text-xs" />
+                </div>
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="memo" className="text-xs text-slate-600">Memo</Label>
+                  <Textarea
+                    id="memo"
+                    name="memo"
+                    defaultValue={tender.memo ?? ""}
+                    disabled={isTenderClosed}
+                    className="min-h-28 rounded-xl border-slate-200 bg-slate-50 text-xs"
+                  />
+                </div>
               </div>
-              <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                <p className="text-sm font-semibold text-slate-800">Data & Audit</p>
-                <p className="mt-1 text-xs text-slate-500">
-                  All lot and status changes are tracked in audit logs for review.
-                </p>
-                <Button asChild size="sm" variant="outline" className="mt-3 rounded-full border-slate-200 px-3 text-xs">
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                <Button asChild size="sm" variant="outline" className="h-9 rounded-full border-slate-200 px-3 text-xs">
                   <Link href="/audit-log">Open Audit Log</Link>
                 </Button>
+                <Button type="submit" disabled={isTenderClosed} className="h-9 rounded-full bg-primary px-4 text-xs text-primary-foreground hover:bg-primary/90">
+                  Save Changes
+                </Button>
               </div>
-            </div>
+            </form>
 
-            <div className="rounded-2xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 p-4">
-              <p className="text-sm font-semibold text-slate-800">Support</p>
-              <p className="mt-1 text-xs text-slate-500">
-                For urgent auction issues, contact operations support with Tender Code, Lot No, and incident time.
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/60 p-4">
+              <p className="text-sm font-semibold text-rose-800">Danger Zone</p>
+              <p className="mt-1 text-xs text-rose-700">
+                Delete this tender permanently. This action cannot be undone.
               </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <Badge variant="outline" className="rounded-full border-slate-300 bg-white text-slate-700">
-                  support@pearlauction.local
-                </Badge>
-                <Badge variant="outline" className="rounded-full border-slate-300 bg-white text-slate-700">
-                  +95 9 000 000 000
-                </Badge>
+              <div className="mt-3">
+                <DeleteTenderConfirm tenderId={id} tenderCode={tender.code} deleteAction={deleteTender} />
               </div>
             </div>
           </CardContent>

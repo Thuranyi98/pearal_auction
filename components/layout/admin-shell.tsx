@@ -17,6 +17,7 @@ import {
 import { useMemo, useSyncExternalStore } from "react";
 
 import { signOut } from "@/lib/actions";
+import { ActionSuccessToast } from "@/components/ui/action-success-toast";
 import { cn } from "@/lib/utils";
 
 type MenuItem = {
@@ -83,9 +84,34 @@ export function AdminShell({ userName, role, menu, children }: Props) {
 
   const primaryMenu = menu.slice(0, 4);
   const secondaryMenu = menu.slice(4);
+  const breadcrumbs = useMemo(() => {
+    const labels: Record<string, string> = {
+      tenders: "Tenders",
+      results: "Results",
+      bidders: "Bidders",
+      users: "Users",
+      "audit-log": "Audit Log",
+      settings: "Settings",
+      monitor: "Monitor",
+      login: "Login",
+    };
+
+    const parts = pathname.split("/").filter(Boolean);
+    const result: Array<{ href: string; label: string }> = [{ href: "/", label: "Dashboard" }];
+    let current = "";
+
+    for (const part of parts) {
+      current += `/${part}`;
+      const raw = labels[part] ?? decodeURIComponent(part).replace(/-/g, " ");
+      const label = /^\d+$/.test(raw) ? `#${raw}` : raw;
+      result.push({ href: current, label });
+    }
+    return result;
+  }, [pathname]);
 
   return (
     <div className="min-h-screen bg-slate-100/80">
+      <ActionSuccessToast />
       <header className="border-b bg-background/90 backdrop-blur">
         <div className="flex h-16 w-full items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-3 font-semibold">
@@ -242,7 +268,23 @@ export function AdminShell({ userName, role, menu, children }: Props) {
           </div>
         </aside>
 
-        <main className="rounded-2xl border border-slate-200 bg-white p-4 transition-all duration-300 md:p-5">{children}</main>
+        <main className="rounded-2xl border border-slate-200 bg-white p-4 transition-all duration-300 md:p-5">
+          <nav className="mb-3 flex flex-wrap items-center gap-1 rounded-xl border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-500">
+            {breadcrumbs.map((crumb, idx) => (
+              <span key={crumb.href} className="inline-flex items-center gap-1">
+                {idx > 0 ? <ChevronRight className="h-3.5 w-3.5 text-slate-400" /> : null}
+                {idx === breadcrumbs.length - 1 ? (
+                  <span className="rounded-full bg-white px-2 py-0.5 font-medium text-slate-700">{crumb.label}</span>
+                ) : (
+                  <Link href={crumb.href} className="rounded-full px-2 py-0.5 hover:bg-white hover:text-slate-700">
+                    {crumb.label}
+                  </Link>
+                )}
+              </span>
+            ))}
+          </nav>
+          {children}
+        </main>
       </div>
     </div>
   );

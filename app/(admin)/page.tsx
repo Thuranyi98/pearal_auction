@@ -65,7 +65,7 @@ export default async function DashboardPage() {
     prisma.bid.findMany({
       where: { state: "SUBMITTED" },
       orderBy: { updatedAt: "desc" },
-      take: 5,
+      take: 3,
       include: {
         bidder: true,
         lot: true,
@@ -93,13 +93,7 @@ export default async function DashboardPage() {
   const noBidLotsList = lots
     .filter((lot) => lot.bids.filter((bid) => bid.state === "SUBMITTED").length === 0)
     .sort((a, b) => a.tenderId - b.tenderId || a.lotNo - b.lotNo)
-    .slice(0, 8)
-    .map((lot) => ({
-      lotId: lot.id,
-      tenderCode: lot.tender.code,
-      lotNo: lot.lotNo,
-      startPrice: Number(lot.startPrice ?? 0),
-    }));
+    .slice(0, 4);
   const tieQueue = lots
     .flatMap((lot) => {
       const submitted = lot.bids
@@ -120,7 +114,7 @@ export default async function DashboardPage() {
       ];
     })
     .sort((a, b) => b.topAmount - a.topAmount)
-    .slice(0, 8);
+    .slice(0, 4);
   const dayKeyFormatter = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Asia/Yangon",
     year: "numeric",
@@ -132,13 +126,16 @@ export default async function DashboardPage() {
     month: "short",
     day: "numeric",
   });
-  const submittedDailyMap = new Map<string, number>();
+  const submittedDailyAmountMap = new Map<string, number>();
+  const submittedDailyCountMap = new Map<string, number>();
   allBids
     .filter((bid) => bid.state === "SUBMITTED")
     .forEach((bid) => {
       const key = dayKeyFormatter.format(bid.updatedAt);
-      const current = submittedDailyMap.get(key) ?? 0;
-      submittedDailyMap.set(key, current + Number(bid.amount));
+      const currentAmount = submittedDailyAmountMap.get(key) ?? 0;
+      submittedDailyAmountMap.set(key, currentAmount + Number(bid.amount));
+      const currentCount = submittedDailyCountMap.get(key) ?? 0;
+      submittedDailyCountMap.set(key, currentCount + 1);
     });
   const now = new Date();
   const sales5DayPoints = Array.from({ length: 5 }, (_, idx) => {
@@ -146,14 +143,13 @@ export default async function DashboardPage() {
     date.setDate(now.getDate() - (4 - idx));
     const key = dayKeyFormatter.format(date);
     const label = dayLabelFormatter.format(date);
-    const value = submittedDailyMap.get(key) ?? 0;
+    const value = submittedDailyAmountMap.get(key) ?? 0;
     return {
       value,
       label,
       tooltip: `${label}: ${formatCurrency(value)}`,
     };
   });
-
   const tenderAnalytics = tenderAnalyticsSource.map((t) => {
     const tenderOutcomes = t.lots.map(calculateLotOutcome);
     const won = tenderOutcomes.filter((o) => !o.isTie && !o.isUnsold && o.topAmount != null);
@@ -165,6 +161,7 @@ export default async function DashboardPage() {
     const draftBids = bidStats.filter((bid) => bid.state === "DRAFT").length;
     const noBidLots = t.lots.filter((lot) => lot.bids.filter((bid) => bid.state === "SUBMITTED").length === 0).length;
     const winnerMap = new Map<string, { bidderNo: string; name: string; wins: number; totalAwarded: number }>();
+
     for (const outcome of won) {
       if (!outcome.winnerBidderNo || !outcome.winnerName) continue;
       const key = outcome.winnerBidderNo;
@@ -180,9 +177,6 @@ export default async function DashboardPage() {
         totalAwarded: prev.totalAwarded + Number(outcome.topAmount ?? 0),
       });
     }
-    const topBidders = Array.from(winnerMap.values())
-      .sort((a, b) => b.totalAwarded - a.totalAwarded)
-      .slice(0, 5);
 
     return {
       tenderId: t.id,
@@ -200,7 +194,7 @@ export default async function DashboardPage() {
       submittedBids,
       draftBids,
       noBidLots,
-      topBidders,
+      topBidders: Array.from(winnerMap.values()).sort((a, b) => b.totalAwarded - a.totalAwarded).slice(0, 5),
     };
   });
 
@@ -224,9 +218,6 @@ export default async function DashboardPage() {
       });
     }
   }
-  const aggregateTopBidders = Array.from(aggregateWinnerMap.values())
-    .sort((a, b) => b.totalAwarded - a.totalAwarded)
-    .slice(0, 5);
 
   const aggregateAnalytics = {
     tenderId: 0 as const,
@@ -247,19 +238,21 @@ export default async function DashboardPage() {
     submittedBids: tenderAnalytics.reduce((sum, t) => sum + t.submittedBids, 0),
     draftBids: tenderAnalytics.reduce((sum, t) => sum + t.draftBids, 0),
     noBidLots: tenderAnalytics.reduce((sum, t) => sum + t.noBidLots, 0),
-    topBidders: aggregateTopBidders,
+    topBidders: Array.from(aggregateWinnerMap.values()).sort((a, b) => b.totalAwarded - a.totalAwarded).slice(0, 5),
   };
-
-  const recentSeries = tenderAnalytics
-    .slice(0, 6)
-    .map((item) => item.wonCount)
-    .reverse();
+  const submissionPoints = Array.from({ length: 5 }, (_, idx) => {
+    const date = new Date(now);
+    date.setDate(now.getDate() - (4 - idx));
+    const key = dayKeyFormatter.format(date);
+    const label = dayLabelFormatter.format(date);
+    const value = submittedDailyCountMap.get(key) ?? 0;
+    return {
+      value,
+      label,
+      tooltip: `${label}: ${value.toLocaleString("en-US")} submitted`,
+    };
+  });
   const outcomeSeries = [wonLots.length, tieLots.length, unsoldLots.length];
-  const submissionPoints = recentSeries.map((value, idx) => ({
-    value,
-    label: `P${idx + 1}`,
-    tooltip: `Period ${idx + 1}: ${value.toLocaleString("en-US")} bids`,
-  }));
   const outcomePoints = [
     {
       value: outcomeSeries[0] ?? 0,
@@ -377,7 +370,7 @@ export default async function DashboardPage() {
                 <Link href="/results">View All</Link>
               </Button>
             </div>
-            <div className="max-h-[190px] space-y-1 overflow-y-auto pr-1">
+            <div className="max-h-[150px] space-y-1 overflow-y-auto pr-1">
               {recentSubmittedBids.length === 0 ? (
                 <p className="text-sm text-slate-500">No recent bid submissions.</p>
               ) : (
@@ -410,38 +403,16 @@ export default async function DashboardPage() {
                 Live
               </span>
             </div>
-            <div className="space-y-1.5">
-              <div className="rounded-md border border-slate-200 bg-white p-1.5">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">Tie Queue Detail</p>
-                <div className="space-y-1">
-                  {tieQueue.length === 0 ? (
-                    <p className="text-xs text-slate-500">No tie lots in queue.</p>
-                  ) : (
-                    tieQueue.map((item) => (
-                      <div key={item.lotId} className="flex items-center justify-between bg-slate-50 px-2 py-0.5 text-[11px]">
-                        <span className="font-medium text-slate-700">{item.tenderCode} • Lot #{item.lotNo}</span>
-                        <span className="text-slate-600">
-                          {item.tiedBidders} tied @ <span className="font-semibold text-slate-800">{formatCurrency(item.topAmount)}</span>
-                        </span>
-                      </div>
-                    ))
-                  )}
-                </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">Tie Lots</p>
+                <p className="mt-1 text-lg font-bold text-amber-700">{tieQueue.length}</p>
+                <p className="text-[11px] text-amber-700">Need rebid resolution</p>
               </div>
-              <div className="rounded-md border border-slate-200 bg-white p-1.5">
-                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">No-Bid Lots List</p>
-                <div className="space-y-1">
-                  {noBidLotsList.length === 0 ? (
-                    <p className="text-xs text-slate-500">All lots have submitted bids.</p>
-                  ) : (
-                    noBidLotsList.map((item) => (
-                      <div key={item.lotId} className="flex items-center justify-between bg-slate-50 px-2 py-0.5 text-[11px]">
-                        <span className="font-medium text-slate-700">{item.tenderCode} • Lot #{item.lotNo}</span>
-                        <span className="text-slate-600">Start {formatCurrency(item.startPrice)}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
+              <div className="rounded-md border border-rose-200 bg-rose-50 p-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-800">No-Bid Lots</p>
+                <p className="mt-1 text-lg font-bold text-rose-700">{noBidLotsList.length}</p>
+                <p className="text-[11px] text-rose-700">Still waiting for bids</p>
               </div>
             </div>
           </div>

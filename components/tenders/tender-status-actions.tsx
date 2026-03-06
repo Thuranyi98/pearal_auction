@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 import { Button } from "@/components/ui/button";
 
@@ -12,6 +13,7 @@ type Props = {
 
 export function TenderStatusActions({ tenderId, tenderStatus, updateStatusAction }: Props) {
   const [closeConfirmOpen, setCloseConfirmOpen] = useState(false);
+  const hasDOM = typeof document !== "undefined";
 
   async function handleCloseTender(formData: FormData) {
     await updateStatusAction(formData);
@@ -38,7 +40,8 @@ export function TenderStatusActions({ tenderId, tenderStatus, updateStatusAction
         )}
       </div>
 
-      {closeConfirmOpen && (
+      {closeConfirmOpen && hasDOM
+        ? createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-4 shadow-xl">
             <h3 className="text-base font-semibold text-slate-900">Close Tender Confirmation</h3>
@@ -59,8 +62,10 @@ export function TenderStatusActions({ tenderId, tenderStatus, updateStatusAction
               </form>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+        document.body
+      )
+        : null}
     </>
   );
 }
