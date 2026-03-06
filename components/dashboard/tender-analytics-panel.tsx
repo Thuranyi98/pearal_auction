@@ -367,10 +367,6 @@ export function TenderAnalyticsPanel({ items, aggregate }: Props) {
               <span className="text-violet-800">Draft bids pending submit</span>
               <span className="font-semibold text-violet-900">{selected.draftBids}</span>
             </div>
-            <div className="flex items-center justify-between bg-emerald-50 px-2 py-1.5 text-xs">
-              <span className="text-emerald-800">Submitted bids</span>
-              <span className="font-semibold text-emerald-900">{selected.submittedBids}</span>
-            </div>
           </div>
         </div>
       </div>

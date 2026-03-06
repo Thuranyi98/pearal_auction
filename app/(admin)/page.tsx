@@ -9,33 +9,6 @@ import { calculateLotOutcome } from "@/lib/auction";
 import { formatCurrency } from "@/lib/utils";
 import { prisma } from "@/prisma/client";
 
-function SparkBars({
-  points,
-  active,
-  colorClass,
-}: {
-  points: { value: number; label: string; tooltip: string }[];
-  active: number;
-  colorClass: string;
-}) {
-  const max = Math.max(...points.map((point) => point.value), 1);
-  return (
-    <div className="flex items-end gap-1.5">
-      {points.map((point, idx) => (
-        <div key={`${point.label}-${idx}`} className="group relative">
-          <div
-            className={`w-3 rounded-sm transition-all ${idx === active ? `${colorClass} shadow-lg` : "bg-slate-200"} group-hover:brightness-95`}
-            style={{ height: `${12 + (point.value / max) * 28}px` }}
-          />
-          <div className="pointer-events-none absolute bottom-full left-1/2 z-20 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded border border-slate-200 bg-white px-2 py-1 text-[10px] font-medium text-slate-700 shadow-sm group-hover:block">
-            {point.tooltip}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 export default async function DashboardPage() {
   const [tenders, tenderAnalyticsSource, lots, recentSubmittedBids] = await Promise.all([
     prisma.tender.findMany({ orderBy: { createdAt: "desc" }, take: 10 }),
@@ -85,71 +58,8 @@ export default async function DashboardPage() {
   const activeTenderLots = inProgressTender
     ? tenderAnalyticsSource.find((t) => t.id === inProgressTender.id)?.lots.length ?? 0
     : 0;
-  const allBids = lots.flatMap((lot) => lot.bids);
-  const submittedBidsCount = allBids.filter((bid) => bid.state === "SUBMITTED").length;
-  const draftBidsCount = allBids.filter((bid) => bid.state === "DRAFT").length;
   const totalWinningValue = prices.reduce((sum, value) => sum + value, 0);
   const soldRate = lots.length > 0 ? (wonLots.length / lots.length) * 100 : 0;
-  const noBidLotsList = lots
-    .filter((lot) => lot.bids.filter((bid) => bid.state === "SUBMITTED").length === 0)
-    .sort((a, b) => a.tenderId - b.tenderId || a.lotNo - b.lotNo)
-    .slice(0, 4);
-  const tieQueue = lots
-    .flatMap((lot) => {
-      const submitted = lot.bids
-        .filter((bid) => bid.state === "SUBMITTED")
-        .sort((a, b) => Number(b.amount) - Number(a.amount));
-      if (submitted.length < 2) return [];
-      const top = Number(submitted[0].amount);
-      const tied = submitted.filter((bid) => Number(bid.amount) === top);
-      if (tied.length < 2) return [];
-      return [
-        {
-          lotId: lot.id,
-          tenderCode: lot.tender.code,
-          lotNo: lot.lotNo,
-          topAmount: top,
-          tiedBidders: tied.length,
-        },
-      ];
-    })
-    .sort((a, b) => b.topAmount - a.topAmount)
-    .slice(0, 4);
-  const dayKeyFormatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Asia/Yangon",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const dayLabelFormatter = new Intl.DateTimeFormat("en-US", {
-    timeZone: "Asia/Yangon",
-    month: "short",
-    day: "numeric",
-  });
-  const submittedDailyAmountMap = new Map<string, number>();
-  const submittedDailyCountMap = new Map<string, number>();
-  allBids
-    .filter((bid) => bid.state === "SUBMITTED")
-    .forEach((bid) => {
-      const key = dayKeyFormatter.format(bid.updatedAt);
-      const currentAmount = submittedDailyAmountMap.get(key) ?? 0;
-      submittedDailyAmountMap.set(key, currentAmount + Number(bid.amount));
-      const currentCount = submittedDailyCountMap.get(key) ?? 0;
-      submittedDailyCountMap.set(key, currentCount + 1);
-    });
-  const now = new Date();
-  const sales5DayPoints = Array.from({ length: 5 }, (_, idx) => {
-    const date = new Date(now);
-    date.setDate(now.getDate() - (4 - idx));
-    const key = dayKeyFormatter.format(date);
-    const label = dayLabelFormatter.format(date);
-    const value = submittedDailyAmountMap.get(key) ?? 0;
-    return {
-      value,
-      label,
-      tooltip: `${label}: ${formatCurrency(value)}`,
-    };
-  });
   const tenderAnalytics = tenderAnalyticsSource.map((t) => {
     const tenderOutcomes = t.lots.map(calculateLotOutcome);
     const won = tenderOutcomes.filter((o) => !o.isTie && !o.isUnsold && o.topAmount != null);
@@ -240,37 +150,6 @@ export default async function DashboardPage() {
     noBidLots: tenderAnalytics.reduce((sum, t) => sum + t.noBidLots, 0),
     topBidders: Array.from(aggregateWinnerMap.values()).sort((a, b) => b.totalAwarded - a.totalAwarded).slice(0, 5),
   };
-  const submissionPoints = Array.from({ length: 5 }, (_, idx) => {
-    const date = new Date(now);
-    date.setDate(now.getDate() - (4 - idx));
-    const key = dayKeyFormatter.format(date);
-    const label = dayLabelFormatter.format(date);
-    const value = submittedDailyCountMap.get(key) ?? 0;
-    return {
-      value,
-      label,
-      tooltip: `${label}: ${value.toLocaleString("en-US")} submitted`,
-    };
-  });
-  const outcomeSeries = [wonLots.length, tieLots.length, unsoldLots.length];
-  const outcomePoints = [
-    {
-      value: outcomeSeries[0] ?? 0,
-      label: "Sold",
-      tooltip: `Sold: ${(outcomeSeries[0] ?? 0).toLocaleString("en-US")} lots`,
-    },
-    {
-      value: outcomeSeries[1] ?? 0,
-      label: "Tie",
-      tooltip: `Tie: ${(outcomeSeries[1] ?? 0).toLocaleString("en-US")} lots`,
-    },
-    {
-      value: outcomeSeries[2] ?? 0,
-      label: "Unsold",
-      tooltip: `Unsold: ${(outcomeSeries[2] ?? 0).toLocaleString("en-US")} lots`,
-    },
-  ];
-
   return (
     <div className="space-y-2.5">
       <section className="overflow-hidden rounded-[28px] border border-slate-200 bg-white">
@@ -327,32 +206,16 @@ export default async function DashboardPage() {
         </MotionBlock>
 
         <MotionBlock delay={0.07}>
-          <div className="grid gap-2.5 border-t border-slate-200 bg-slate-50/40 p-3 lg:grid-cols-3">
+          <div className="grid gap-2.5 border-t border-slate-200 bg-slate-50/40 p-3 lg:grid-cols-2">
             <div className="rounded-xl border border-slate-200 bg-white p-2.5">
             <p className="text-xs font-medium text-slate-600">Total Awarded Value (USD) - Overall</p>
             <p className="mt-1 text-2xl font-semibold text-orange-500">{formatCurrency(totalWinningValue)}</p>
             <p className="text-xs text-slate-500">Across all sold lots</p>
-            <div className="mt-2">
-              <SparkBars points={sales5DayPoints} active={4} colorClass="bg-orange-400" />
-            </div>
-          </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-2.5">
-            <p className="text-xs font-medium text-slate-600">Bid Submissions (Overall)</p>
-            <p className="mt-1 text-2xl font-semibold text-violet-600">{submittedBidsCount.toLocaleString("en-US")}</p>
-            <p className="text-xs text-slate-500">{draftBidsCount.toLocaleString("en-US")} draft bids pending</p>
-            <div className="mt-2">
-              <SparkBars points={submissionPoints.length ? submissionPoints : [{ value: 0, label: "N/A", tooltip: "No data" }]} active={Math.max(submissionPoints.length - 1, 0)} colorClass="bg-violet-600" />
-            </div>
           </div>
           <div className="rounded-xl border border-slate-200 bg-white p-2.5">
             <p className="text-xs font-medium text-slate-600">Lot Closure Rate (Overall)</p>
             <p className="mt-1 text-2xl font-semibold text-emerald-500">{soldRate.toFixed(1)}%</p>
-            <p className="text-xs text-slate-500">
-              Sold {wonLots.length} / {lots.length} lots
-            </p>
-            <div className="mt-2">
-              <SparkBars points={outcomePoints} active={0} colorClass="bg-emerald-500" />
-            </div>
+            <p className="text-xs text-slate-500">Sold {wonLots.length} / {lots.length} lots</p>
           </div>
           </div>
         </MotionBlock>
@@ -362,7 +225,7 @@ export default async function DashboardPage() {
         </MotionBlock>
 
         <MotionBlock delay={0.17}>
-          <div className="grid gap-2.5 border-t border-slate-200 bg-white p-3 lg:grid-cols-[1.2fr_1fr]">
+          <div className="border-t border-slate-200 bg-white p-3">
           <div className="rounded-xl bg-slate-50/40 p-2">
             <div className="mb-1.5 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-800">Latest Transactions</h2>
@@ -393,27 +256,6 @@ export default async function DashboardPage() {
                   </div>
                 ))
               )}
-            </div>
-          </div>
-
-          <div className="rounded-xl bg-slate-50/40 p-2.5">
-            <div className="mb-1.5 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-800">Operational Queue</h2>
-              <span className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
-                Live
-              </span>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <div className="rounded-md border border-amber-200 bg-amber-50 p-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-800">Tie Lots</p>
-                <p className="mt-1 text-lg font-bold text-amber-700">{tieQueue.length}</p>
-                <p className="text-[11px] text-amber-700">Need rebid resolution</p>
-              </div>
-              <div className="rounded-md border border-rose-200 bg-rose-50 p-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-800">No-Bid Lots</p>
-                <p className="mt-1 text-lg font-bold text-rose-700">{noBidLotsList.length}</p>
-                <p className="text-[11px] text-rose-700">Still waiting for bids</p>
-              </div>
             </div>
           </div>
           </div>
