@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -25,8 +26,8 @@ export default async function LoginPage({ searchParams }: Props) {
       <Card className="w-full max-w-md border-white/70 shadow-lg">
         <CardHeader>
           <div className="mb-2 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-xs font-bold text-primary-foreground">
-              PA
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+              <Image src="/client-logo.png" alt="Client logo" width={36} height={36} className="h-full w-full object-contain p-0.5" />
             </div>
             <div>
               <p className="font-semibold">Pearl Auction Admin</p>

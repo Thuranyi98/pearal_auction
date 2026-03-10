@@ -52,6 +52,7 @@ export default async function TenderMonitorPage({ params }: Props) {
     <div className="min-h-screen bg-[radial-gradient(circle_at_0%_0%,rgba(79,70,229,0.22)_0,transparent_32%),radial-gradient(circle_at_100%_0%,rgba(217,70,239,0.18)_0,transparent_30%),linear-gradient(180deg,#f8fafc_0%,#eef2ff_100%)] p-4 md:p-8">
       <AutoRefresh />
       <TenderMonitorGameBoard
+        monitorTitle={tender.monitorTitle ?? "LIVE BIDDING ARENA"}
         tenderCode={tender.code}
         tenderName={tender.name}
         tenderStatus={tender.status}

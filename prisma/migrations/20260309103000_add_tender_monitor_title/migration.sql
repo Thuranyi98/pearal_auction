@@ -1,0 +1,2 @@
+ALTER TABLE "Tender"
+ADD COLUMN "monitorTitle" VARCHAR(120);

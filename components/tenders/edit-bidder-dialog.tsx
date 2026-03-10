@@ -13,6 +13,7 @@ type Props = {
   bidderNo: string;
   name: string;
   email: string | null;
+  phone: string | null;
   disabled?: boolean;
   updateAction: (formData: FormData) => Promise<void>;
 };
@@ -23,6 +24,7 @@ export function EditBidderDialog({
   bidderNo,
   name,
   email,
+  phone,
   disabled = false,
   updateAction,
 }: Props) {
@@ -52,7 +54,7 @@ export function EditBidderDialog({
               <input type="hidden" name="bidderId" value={bidderId} />
 
               <div className="grid gap-2">
-                <Label htmlFor={`bidderNo_${bidderId}`} className="text-xs text-slate-600">Bidder No*</Label>
+                <Label htmlFor={`bidderNo_${bidderId}`} className="text-xs text-slate-600">Register No*</Label>
                 <Input
                   id={`bidderNo_${bidderId}`}
                   name="bidderNo"
@@ -80,6 +82,16 @@ export function EditBidderDialog({
                   name="email"
                   type="email"
                   defaultValue={email ?? ""}
+                  className="h-9 rounded-full border-slate-200 bg-slate-50 text-xs"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor={`phone_${bidderId}`} className="text-xs text-slate-600">Phone</Label>
+                <Input
+                  id={`phone_${bidderId}`}
+                  name="phone"
+                  defaultValue={phone ?? ""}
                   className="h-9 rounded-full border-slate-200 bg-slate-50 text-xs"
                 />
               </div>

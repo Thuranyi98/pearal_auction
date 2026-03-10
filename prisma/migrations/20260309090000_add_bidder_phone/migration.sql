@@ -1,0 +1,2 @@
+ALTER TABLE "Bidder"
+ADD COLUMN "phone" VARCHAR(32);

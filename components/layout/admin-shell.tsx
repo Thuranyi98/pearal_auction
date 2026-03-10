@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -115,8 +116,8 @@ export function AdminShell({ userName, role, menu, children }: Props) {
       <header className="border-b bg-background/90 backdrop-blur">
         <div className="flex h-16 w-full items-center justify-between px-4 md:px-6">
           <div className="flex items-center gap-3 font-semibold">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-xs font-bold text-primary-foreground shadow-sm">
-              PA
+            <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+              <Image src="/client-logo.png" alt="Client logo" width={36} height={36} className="h-full w-full object-contain p-0.5" />
             </div>
             <div className="leading-tight">
               <p>Pearl Auction Admin</p>

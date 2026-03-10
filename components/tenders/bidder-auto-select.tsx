@@ -45,7 +45,7 @@ export function BidderAutoSelect({ currentBidderId, bidders, disabled = false }:
         ) : (
           bidders.map((b) => (
             <option key={b.id} value={b.id}>
-              BidderNo {b.bidderNo} - {b.name}
+              Register No {b.bidderNo} - {b.name}
             </option>
           ))
         )}

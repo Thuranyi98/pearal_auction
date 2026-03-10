@@ -401,6 +401,7 @@ export async function createTender(formData: FormData) {
     data: {
       code,
       name,
+      monitorTitle: "LIVE BIDDING ARENA",
       date: dateRaw ? new Date(dateRaw) : null,
       currency: "USD",
       memo: memo || null,
@@ -473,6 +474,7 @@ export async function addBidder(formData: FormData) {
   const bidderNo = String(formData.get("bidderNo") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
 
   if (!bidderNo || !name) throw new Error("Bidder no and name are required");
   await ensureTenderNotClosed(tenderId);
@@ -486,11 +488,13 @@ export async function addBidder(formData: FormData) {
     },
     update: {
       email: email || null,
+      phone: phone || null,
     },
     create: {
       bidderNo,
       name,
       email: email || null,
+      phone: phone || null,
     },
   });
 
@@ -577,6 +581,7 @@ export async function updateBidderInTender(formData: FormData) {
   const bidderNo = String(formData.get("bidderNo") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
 
   if (!bidderNo || !name) throw new Error("Bidder no and name are required");
   await ensureTenderNotClosed(tenderId);
@@ -602,6 +607,7 @@ export async function updateBidderInTender(formData: FormData) {
       bidderNo,
       name,
       email: email || null,
+      phone: phone || null,
     },
   });
 
@@ -883,10 +889,11 @@ export async function resolveTieByRebid(formData: FormData) {
   });
 
   revalidatePath(`/tenders/${tenderId}?tab=bid-entry`);
+  revalidatePath(`/tenders/${tenderId}?tab=tie`);
   revalidatePath(`/tenders/${tenderId}?tab=monitor`);
   revalidatePath(`/tenders/${tenderId}?tab=results`);
   revalidatePath("/");
-  redirect(`/tenders/${tenderId}?tab=bid-entry&ok=tie_resolved`);
+  redirect(`/tenders/${tenderId}?tab=tie&ok=tie_resolved`);
 }
 
 export async function createUser(formData: FormData) {
@@ -946,6 +953,41 @@ export async function updateTenderInfo(formData: FormData) {
   revalidatePath("/tenders");
   revalidatePath("/");
   redirect(`/tenders/${tenderId}?tab=settings&ok=tender_updated`);
+}
+
+export async function updateTenderMonitorTitle(formData: FormData) {
+  const actor = await requireAuth();
+
+  const tenderId = parseNumber(formData.get("tenderId"));
+  const monitorTitle = String(formData.get("monitorTitle") ?? "").trim();
+
+  if (!monitorTitle) throw new Error("Monitor title is required");
+  await ensureTenderNotClosed(tenderId);
+
+  const updated = await prisma.tender.update({
+    where: { id: tenderId },
+    data: {
+      monitorTitle,
+    },
+    select: {
+      id: true,
+      code: true,
+    },
+  });
+
+  await prisma.auditLog.create({
+    data: {
+      username: actor.name,
+      action: "MONITOR_TITLE_UPDATED",
+      detail: `Tender #${tenderId} monitor title updated`,
+      tenderId,
+    },
+  });
+
+  revalidatePath(`/tenders/${tenderId}?tab=monitor`);
+  revalidatePath(`/monitor/tenders/${updated.code}`);
+  revalidatePath("/");
+  redirect(`/tenders/${tenderId}?tab=monitor&ok=monitor_title_updated`);
 }
 
 export async function deleteTender(formData: FormData) {

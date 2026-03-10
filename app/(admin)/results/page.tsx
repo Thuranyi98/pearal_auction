@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ResultsTableActions } from "@/components/results/results-table-actions";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { calculateLotOutcome, statusLabelFromOutcome } from "@/lib/auction";
 import { isLotNotForSale } from "@/lib/lot-sale-status";
@@ -31,20 +32,19 @@ export default async function ResultsPage({ searchParams }: Props) {
     return <div>No tender found.</div>;
   }
 
-  const totalLots = await prisma.lot.count({ where: { tenderId: selectedTender.id } });
-  const totalPages = Math.max(1, Math.ceil(totalLots / currentPageSize));
-  const safePage = Math.min(currentPage, totalPages);
-
-  const lots = await prisma.lot.findMany({
+  const allLots = await prisma.lot.findMany({
     where: { tenderId: selectedTender.id },
     orderBy: { lotNo: "asc" },
     include: { bids: { include: { bidder: true } } },
-    skip: (safePage - 1) * currentPageSize,
-    take: currentPageSize,
   });
+  const visibleLots = allLots.filter((lot) => !isLotNotForSale(lot));
+  const totalLots = visibleLots.length;
+  const totalPages = Math.max(1, Math.ceil(totalLots / currentPageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const lots = visibleLots.slice((safePage - 1) * currentPageSize, safePage * currentPageSize);
+  const exportHref = `/api/results/export?tenderId=${selectedTender.id}`;
 
   const outcomes = lots.map(calculateLotOutcome);
-  const lotById = new Map(lots.map((lot) => [lot.id, lot]));
 
   return (
     <div className="space-y-3 rounded-2xl bg-gradient-to-br from-sky-50/70 via-white to-violet-50/60 p-2">
@@ -84,30 +84,31 @@ export default async function ResultsPage({ searchParams }: Props) {
             <Button type="submit" className="h-9 rounded-full bg-primary px-4 text-xs text-primary-foreground hover:bg-primary/90">
               Filter
             </Button>
+            <ResultsTableActions exportHref={exportHref} tableId="results-table" />
           </form>
 
           <div className="overflow-x-auto rounded-2xl border border-indigo-100 bg-gradient-to-b from-indigo-50/40 via-white to-sky-50/40">
-            <Table className="w-full border-collapse text-xs">
+            <Table id="results-table" className="w-full border-collapse text-xs">
               <TableHeader>
                 <TableRow className="bg-indigo-100/50 hover:bg-indigo-100/50">
                   <TableHead className="h-[46px] border-b border-r border-slate-200">Lot No</TableHead>
                   <TableHead className="h-[46px] border-b border-r border-slate-200 text-right">Start Price</TableHead>
                   <TableHead className="h-[46px] border-b border-r border-slate-200 text-right">Final Price</TableHead>
-                  <TableHead className="h-[46px] border-b border-r border-slate-200">Winner</TableHead>
+                  <TableHead className="h-[46px] border-b border-r border-slate-200">Winner Register No</TableHead>
+                  <TableHead className="h-[46px] border-b border-r border-slate-200">Winner Name</TableHead>
                   <TableHead className="h-[50px] border-b border-slate-200">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {outcomes.length === 0 ? (
                   <TableRow className="hover:bg-transparent">
-                    <TableCell colSpan={5} className="h-[52px] border-b border-slate-200 text-center text-slate-500">
+                    <TableCell colSpan={6} className="h-[52px] border-b border-slate-200 text-center text-slate-500">
                       No lots found.
                     </TableCell>
                   </TableRow>
                 ) : (
                   outcomes.map((o) => {
-                    const lot = lotById.get(o.lotId);
-                    const status = lot && isLotNotForSale(lot) ? "NOT FOR SALE" : statusLabelFromOutcome(o);
+                    const status = statusLabelFromOutcome(o);
                     return (
                     <TableRow key={o.lotId} className={`hover:bg-indigo-100/50 ${o.lotNo % 2 === 0 ? "bg-white/90" : "bg-sky-50/60"}`}>
                       <TableCell className="h-[46px] border-b border-r border-slate-200 font-medium">{o.lotNo}</TableCell>
@@ -117,13 +118,14 @@ export default async function ResultsPage({ searchParams }: Props) {
                       </TableCell>
                       <TableCell className="h-[46px] border-b border-r border-slate-200">
                         {o.winnerBidderNo ? (
-                          <Badge variant="outline" className="rounded-full border-slate-200 bg-white px-2.5 py-0.5 font-medium text-slate-700">
-                            Bidder {o.winnerBidderNo}
+                          <Badge variant="outline" className="w-fit rounded-full border-slate-200 bg-white px-2.5 py-0.5 font-medium text-slate-700">
+                            {o.winnerBidderNo}
                           </Badge>
                         ) : (
                           "-"
                         )}
                       </TableCell>
+                      <TableCell className="h-[46px] border-b border-r border-slate-200">{o.winnerName ?? "-"}</TableCell>
                       <TableCell className="h-[46px] border-b border-slate-200">
                         <Badge variant="outline" className={`rounded-full px-2.5 py-0.5 font-medium ${resultStatusBadgeClass(status)}`}>
                           {status}

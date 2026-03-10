@@ -18,6 +18,7 @@ const MESSAGE_MAP: Record<string, string> = {
   password_changed: "Password changed successfully",
   tender_updated: "Tender information updated",
   tender_deleted: "Tender deleted successfully",
+  monitor_title_updated: "Monitor title updated",
 };
 
 export function ActionSuccessToast() {

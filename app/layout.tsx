@@ -12,6 +12,11 @@ const manrope = Manrope({
 export const metadata: Metadata = {
   title: "Pearl Auction Admin",
   description: "Pearl Auction Administration Console",
+  icons: {
+    icon: "/client-logo.png",
+    shortcut: "/client-logo.png",
+    apple: "/client-logo.png",
+  },
 };
 
 export default function RootLayout({

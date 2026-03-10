@@ -15,6 +15,7 @@ type MonitorRow = {
 };
 
 type Props = {
+  monitorTitle: string;
   tenderCode: string;
   tenderName: string;
   tenderStatus: string;
@@ -27,7 +28,7 @@ function statusClass(status: string) {
   return "border-amber-300 bg-amber-100/80 text-amber-700";
 }
 
-export function TenderMonitorGameBoard({ tenderCode, tenderName, tenderStatus, rows }: Props) {
+export function TenderMonitorGameBoard({ monitorTitle, tenderCode, tenderName, tenderStatus, rows }: Props) {
   const soldCount = rows.filter((row) => row.status === "FINAL").length;
   const highest = rows.reduce((max, row) => Math.max(max, row.topAmount ?? 0), 0);
   const topRow = rows.reduce<MonitorRow | null>((best, row) => {
@@ -41,7 +42,7 @@ export function TenderMonitorGameBoard({ tenderCode, tenderName, tenderStatus, r
       <div className="overflow-hidden rounded-[28px] border border-indigo-200/70 bg-gradient-to-r from-indigo-700 via-violet-600 to-fuchsia-500 p-6 text-white shadow-xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-4xl font-black uppercase tracking-[0.08em] text-white">LIVE BIDDING ARENA</h1>
+            <h1 className="text-4xl font-black uppercase tracking-[0.08em] text-white">{monitorTitle}</h1>
             <p className="mt-1 text-sm text-white/90">
               Tender {tenderCode} - {tenderName}
             </p>

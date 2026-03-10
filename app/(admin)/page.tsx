@@ -38,7 +38,7 @@ export default async function DashboardPage() {
     prisma.bid.findMany({
       where: { state: "SUBMITTED" },
       orderBy: { updatedAt: "desc" },
-      take: 3,
+      take: 2,
       include: {
         bidder: true,
         lot: true,
@@ -52,8 +52,6 @@ export default async function DashboardPage() {
   const wonLots = outcomes.filter((o) => !o.isTie && !o.isUnsold && o.topAmount != null);
   const unsoldLots = outcomes.filter((o) => o.isUnsold);
   const prices = wonLots.map((o) => o.topAmount ?? 0);
-  const average = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
-  const highest = prices.length ? Math.max(...prices) : 0;
   const inProgressTender = tenders.find((t) => t.status === "IN_PROGRESS") ?? tenders[0];
   const activeTenderLots = inProgressTender
     ? tenderAnalyticsSource.find((t) => t.id === inProgressTender.id)?.lots.length ?? 0
@@ -162,18 +160,9 @@ export default async function DashboardPage() {
               <Badge variant="outline" className="border-white/30 bg-white/10 text-white">Auction Control Center</Badge>
             </div>
 
-            <div className="relative z-10 mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
-              <span className="inline-flex items-center bg-white/10 px-2 py-0.5 text-white/90">
-                Snapshot Scope: Overall System
-              </span>
-              <span className="inline-flex items-center bg-white/10 px-2 py-0.5 text-white/90">
-                Active Tender Card: Reference Only
-              </span>
-            </div>
-
-            <div className="relative z-10 mt-3 grid gap-2.5 lg:grid-cols-3">
+            <div className="relative z-10 mt-3 grid gap-2.5 lg:grid-cols-2">
               <div className="rounded-2xl bg-gradient-to-br from-emerald-100 to-emerald-200 p-2.5 text-slate-900">
-                <p className="text-xs font-medium text-slate-600">Active Tender (Reference)</p>
+                <p className="text-xs font-medium text-slate-600">Active Tender</p>
                 <p className="mt-1.5 text-base font-semibold">{inProgressTender ? inProgressTender.name : "No Active Tender"}</p>
                 <p className="mt-1 text-xs text-slate-700">Code: {inProgressTender?.code ?? "-"}</p>
                 <div className="mt-2.5 flex items-center justify-between">
@@ -192,27 +181,18 @@ export default async function DashboardPage() {
                 <p className="text-xs text-white/90">Tie lots need resolution</p>
                 <div className="mt-2 text-xs text-white/90">Unsold: {unsoldLots.length} lots</div>
               </div>
-
-              <div className="rounded-2xl bg-gradient-to-br from-cyan-300 to-sky-400 p-2.5 text-slate-900">
-                <p className="text-xs font-medium text-slate-700">Winning Average (USD) - Overall</p>
-                <p className="mt-1.5 text-3xl font-bold">{formatCurrency(average)}</p>
-                <div className="mt-1.5 flex items-center justify-between text-xs">
-                  <span>Highest: {formatCurrency(highest)}</span>
-                  <span>Awards: {wonLots.length}</span>
-                </div>
-              </div>
             </div>
           </div>
         </MotionBlock>
 
         <MotionBlock delay={0.07}>
           <div className="grid gap-2.5 border-t border-slate-200 bg-slate-50/40 p-3 lg:grid-cols-2">
-            <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+            <div className="rounded-xl border border-slate-200/70 bg-white/95 p-2.5">
             <p className="text-xs font-medium text-slate-600">Total Awarded Value (USD) - Overall</p>
             <p className="mt-1 text-2xl font-semibold text-orange-500">{formatCurrency(totalWinningValue)}</p>
             <p className="text-xs text-slate-500">Across all sold lots</p>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-white p-2.5">
+          <div className="rounded-xl border border-slate-200/70 bg-white/95 p-2.5">
             <p className="text-xs font-medium text-slate-600">Lot Closure Rate (Overall)</p>
             <p className="mt-1 text-2xl font-semibold text-emerald-500">{soldRate.toFixed(1)}%</p>
             <p className="text-xs text-slate-500">Sold {wonLots.length} / {lots.length} lots</p>
@@ -233,12 +213,12 @@ export default async function DashboardPage() {
                 <Link href="/results">View All</Link>
               </Button>
             </div>
-            <div className="max-h-[150px] space-y-1 overflow-y-auto pr-1">
+            <div className="max-h-[114px] space-y-1 overflow-y-auto pr-1">
               {recentSubmittedBids.length === 0 ? (
                 <p className="text-sm text-slate-500">No recent bid submissions.</p>
               ) : (
                 recentSubmittedBids.map((bid) => (
-                  <div key={bid.id} className="flex items-center justify-between rounded-md border border-slate-200 bg-white px-2 py-1 transition-colors hover:bg-slate-50">
+                  <div key={bid.id} className="flex items-center justify-between rounded-md border border-slate-200/60 bg-white px-2 py-1 transition-colors hover:bg-slate-50">
                     <div className="flex items-center gap-2">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-indigo-100 text-indigo-600">
                         <HandCoins className="h-3 w-3" />

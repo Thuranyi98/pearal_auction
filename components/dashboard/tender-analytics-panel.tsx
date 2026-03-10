@@ -57,7 +57,7 @@ function StatCard({
 }) {
   return (
     <motion.div
-      className="border border-slate-200 bg-white p-2.5"
+      className="border border-slate-200/70 bg-white/95 p-2.5"
       whileHover={{ y: -2 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
     >
@@ -87,7 +87,7 @@ export function TenderAnalyticsPanel({ items, aggregate }: Props) {
 
   const topTenders = [...items]
     .sort((a, b) => b.average - a.average)
-    .slice(0, 3);
+    .slice(0, 2);
 
   const detailHref = selectedKey === "ALL" ? "/tenders" : `/tenders/${selected.tenderId}`;
 
@@ -169,7 +169,7 @@ export function TenderAnalyticsPanel({ items, aggregate }: Props) {
         <div className="bg-gradient-to-br from-slate-50 to-white p-2.5">
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-700">Outcome Distribution</h3>
           <div className="space-y-1.5">
-            <div className="border border-slate-200 bg-white p-3">
+            <div className="bg-white p-3">
               <div className="grid gap-2 lg:grid-cols-[220px_1fr]">
                 <div className="relative mx-auto w-[220px]">
                   <svg viewBox="0 0 140 86" className="h-[120px] w-full">
@@ -242,35 +242,6 @@ export function TenderAnalyticsPanel({ items, aggregate }: Props) {
               </div>
             </div>
 
-            <div className="grid gap-1.5 md:grid-cols-3">
-              <div className="border border-slate-200 bg-white p-2.5">
-                <div className="mb-1 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-600">Won Lots</span>
-                  <span className="font-medium text-slate-800">{selected.wonCount}</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden bg-gradient-to-r from-slate-100 to-slate-200/70">
-                  <div className="h-full bg-emerald-500" style={{ width: `${wonPct}%` }} />
-                </div>
-              </div>
-              <div className="border border-slate-200 bg-white p-2.5">
-                <div className="mb-1 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-600">Unsold Lots</span>
-                  <span className="font-medium text-slate-800">{selected.unsoldCount}</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden bg-gradient-to-r from-slate-100 to-slate-200/70">
-                  <div className="h-full bg-orange-400" style={{ width: `${unsoldPct}%` }} />
-                </div>
-              </div>
-              <div className="border border-slate-200 bg-white p-2.5">
-                <div className="mb-1 flex items-center justify-between text-[11px]">
-                  <span className="text-slate-600">Tie Lots</span>
-                  <span className="font-medium text-slate-800">{selected.tieCount}</span>
-                </div>
-                <div className="h-2 w-full overflow-hidden bg-gradient-to-r from-slate-100 to-slate-200/70">
-                  <div className="h-full bg-violet-600" style={{ width: `${tiePct}%` }} />
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -283,7 +254,7 @@ export function TenderAnalyticsPanel({ items, aggregate }: Props) {
               topTenders.map((t, idx) => (
                 <motion.div
                   key={t.tenderId}
-                  className="border border-slate-200 bg-gradient-to-r from-white to-slate-50 px-2 py-1.5 text-[11px]"
+                  className="bg-gradient-to-r from-white to-slate-50 px-2 py-1.5 text-[11px]"
                   initial={{ opacity: 0, y: 10 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, amount: 0.4 }}
@@ -319,7 +290,7 @@ export function TenderAnalyticsPanel({ items, aggregate }: Props) {
       </div>
 
       <div className="grid gap-2 lg:grid-cols-2">
-        <div className="border border-slate-200 bg-white p-2.5">
+        <div className="border border-slate-200/70 bg-white/95 p-2.5">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Top Bidders</h3>
             <span className="text-[11px] text-slate-500">By total awarded value</span>
@@ -349,10 +320,9 @@ export function TenderAnalyticsPanel({ items, aggregate }: Props) {
           )}
         </div>
 
-        <div className="border border-slate-200 bg-white p-2.5">
+        <div className="border border-slate-200/70 bg-white/95 p-2.5">
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-700">Action Needed</h3>
-            <span className="text-[11px] text-slate-500">Operational checklist</span>
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between bg-amber-50 px-2 py-1.5 text-xs">
@@ -362,10 +332,6 @@ export function TenderAnalyticsPanel({ items, aggregate }: Props) {
             <div className="flex items-center justify-between bg-slate-50 px-2 py-1.5 text-xs">
               <span className="text-slate-700">Lots with no submitted bids</span>
               <span className="font-semibold text-slate-900">{selected.noBidLots}</span>
-            </div>
-            <div className="flex items-center justify-between bg-violet-50 px-2 py-1.5 text-xs">
-              <span className="text-violet-800">Draft bids pending submit</span>
-              <span className="font-semibold text-violet-900">{selected.draftBids}</span>
             </div>
           </div>
         </div>

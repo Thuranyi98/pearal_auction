@@ -10,6 +10,7 @@ model Tender {
   id         Int            @id @default(autoincrement())
   code       String         @unique @db.VarChar(32)
   name       String         @db.VarChar(191)
+  monitorTitle String?      @db.VarChar(120)
   date       DateTime?
   currency   Currency
   status     TenderStatus   @default(PREP)
@@ -51,6 +52,7 @@ model Bidder {
   bidderNo  String         @db.VarChar(32)
   name      String         @db.VarChar(191)
   email     String?        @db.VarChar(191)
+  phone     String?        @db.VarChar(32)
   createdAt DateTime       @default(now())
   updatedAt DateTime       @updatedAt
   bids      Bid[]
