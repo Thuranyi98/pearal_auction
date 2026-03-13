@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
   const rows = outcomes
     .map((o) => {
-      const winner = o.winnerBidderNo ? `Register No ${o.winnerBidderNo}${o.winnerName ? ` - ${o.winnerName}` : ""}` : "-";
+      const winner = o.winnerBidderNo ? `Register No ${o.winnerBidderNo}` : "-";
       const finalPrice = o.topAmount ? formatCurrency(o.topAmount) : "-";
       const status = o.isTie ? "TIE" : o.isUnsold || o.topAmount == null ? "UNSOLD" : "FINAL";
       return `
